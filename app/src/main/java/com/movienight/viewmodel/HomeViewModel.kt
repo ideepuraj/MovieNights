@@ -6,10 +6,12 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.movienight.data.Movie
 import com.movienight.data.MovieRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class HomeUiState {
     object Loading : HomeUiState()
@@ -29,6 +31,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    // Cache the repository so Retrofit isn't rebuilt on every loadMovies() call
+    private var repository = MovieRepository(_serverUrl.value)
+
     init {
         loadMovies()
     }
@@ -37,7 +42,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
             try {
-                val movies = MovieRepository(_serverUrl.value).getMovies()
+                val movies = withContext(Dispatchers.IO) { repository.getMovies() }
                 _uiState.value = HomeUiState.Success(movies)
             } catch (e: Exception) {
                 _uiState.value = HomeUiState.Error(e.message ?: "Unknown error")
@@ -49,6 +54,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val normalized = url.trimEnd().let { if (it.endsWith("/")) it else "$it/" }
         prefs.edit().putString("server_url", normalized).apply()
         _serverUrl.value = normalized
+        repository = MovieRepository(normalized)   // rebuild only when URL changes
         loadMovies()
     }
 }

@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -54,6 +57,12 @@ fun AppNavigation() {
     val viewModel: HomeViewModel = viewModel()
     var currentScreen by remember { mutableStateOf(Screen.Home) }
     var isSidebarExpanded by remember { mutableStateOf(false) }
+    val contentFocusRequester = remember { FocusRequester() }
+
+    // Force focus into the content grid on launch so the sidebar stays collapsed
+    LaunchedEffect(Unit) {
+        try { contentFocusRequester.requestFocus() } catch (_: Exception) {}
+    }
 
     val sidebarWidth by animateDpAsState(
         targetValue = if (isSidebarExpanded) 210.dp else 68.dp,
@@ -120,6 +129,7 @@ fun AppNavigation() {
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
+                .focusRequester(contentFocusRequester)
         ) {
             when (currentScreen) {
                 Screen.Home     -> HomeScreen(viewModel = viewModel)
