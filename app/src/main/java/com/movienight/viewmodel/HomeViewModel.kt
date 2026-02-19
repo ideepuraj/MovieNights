@@ -34,9 +34,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     // Cache the repository so Retrofit isn't rebuilt on every loadMovies() call
     private var repository = MovieRepository(_serverUrl.value)
 
-    init {
-        loadMovies()
-    }
+    // loadMovies() is NOT called here — the UI triggers it via LaunchedEffect
+    // after the first frame is rendered, so the skeleton appears instantly.
 
     fun loadMovies() {
         viewModelScope.launch {
