@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.movienight.viewmodel.HomeViewModel
 
-enum class Screen { Home, Search }
+enum class Screen { Home, Search, Settings }
 
 @Composable
 fun AppNavigation() {
@@ -108,6 +109,16 @@ fun AppNavigation() {
                 expanded = isSidebarExpanded,
                 onClick = { currentScreen = Screen.Search }
             )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            NavItem(
+                icon = Icons.Filled.Settings,
+                label = "Settings",
+                selected = currentScreen == Screen.Settings,
+                expanded = isSidebarExpanded,
+                onClick = { currentScreen = Screen.Settings }
+            )
         }
 
         // ── Content ───────────────────────────────────────────────────────────
@@ -117,8 +128,9 @@ fun AppNavigation() {
                 .fillMaxHeight()
         ) {
             when (currentScreen) {
-                Screen.Home   -> HomeScreen(viewModel = viewModel)
-                Screen.Search -> SearchScreen(viewModel = viewModel)
+                Screen.Home     -> HomeScreen(viewModel = viewModel)
+                Screen.Search   -> SearchScreen(viewModel = viewModel)
+                Screen.Settings -> SettingsScreen(viewModel = viewModel)
             }
         }
     }

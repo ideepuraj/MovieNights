@@ -1,6 +1,8 @@
 package com.movienight.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.movienight.data.Movie
 import com.movienight.data.MovieRepository
@@ -15,8 +17,14 @@ sealed class HomeUiState {
     data class Error(val message: String) : HomeUiState()
 }
 
-class HomeViewModel : ViewModel() {
-    private val repository = MovieRepository("http://192.168.1.69:8000/")
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val prefs = application.getSharedPreferences("movienight", Context.MODE_PRIVATE)
+
+    private val _serverUrl = MutableStateFlow(
+        prefs.getString("server_url", "http://192.168.1.69:8000/") ?: "http://192.168.1.69:8000/"
+    )
+    val serverUrl: StateFlow<String> = _serverUrl.asStateFlow()
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -29,11 +37,18 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = HomeUiState.Loading
             try {
-                val movies = repository.getMovies()
+                val movies = MovieRepository(_serverUrl.value).getMovies()
                 _uiState.value = HomeUiState.Success(movies)
             } catch (e: Exception) {
                 _uiState.value = HomeUiState.Error(e.message ?: "Unknown error")
             }
         }
+    }
+
+    fun updateServerUrl(url: String) {
+        val normalized = url.trimEnd().let { if (it.endsWith("/")) it else "$it/" }
+        prefs.edit().putString("server_url", normalized).apply()
+        _serverUrl.value = normalized
+        loadMovies()
     }
 }
