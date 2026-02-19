@@ -1,0 +1,8 @@
+<resources>
+    <!-- Base theme: no Material1 attributes needed — all styling is in Compose -->
+    <style name="Theme.MovieNights" parent="Theme.AppCompat.DayNight.NoActionBar" />
+
+    <style name="Theme.MovieNights.NoActionBar" parent="Theme.MovieNights">
+        <item name="android:windowBackground">@color/dark_bg</item>
+    </style>
+</resources>
