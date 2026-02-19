@@ -36,9 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -57,11 +56,12 @@ fun AppNavigation() {
     val viewModel: HomeViewModel = viewModel()
     var currentScreen by remember { mutableStateOf(Screen.Home) }
     var isSidebarExpanded by remember { mutableStateOf(false) }
-    val contentFocusRequester = remember { FocusRequester() }
-
-    // Force focus into the content grid on launch so the sidebar stays collapsed
+    // Ignore focus events on the sidebar for the first 600ms so TV's
+    // automatic initial focus doesn't expand it on launch
+    var sidebarInteractive by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        try { contentFocusRequester.requestFocus() } catch (_: Exception) {}
+        delay(600)
+        sidebarInteractive = true
     }
 
     val sidebarWidth by animateDpAsState(
@@ -82,7 +82,7 @@ fun AppNavigation() {
                 .fillMaxHeight()
                 .background(Color(0xFF1A1A1A))
                 .padding(vertical = 32.dp)
-                .onFocusChanged { isSidebarExpanded = it.hasFocus },
+                .onFocusChanged { if (sidebarInteractive) isSidebarExpanded = it.hasFocus },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top
         ) {
@@ -129,7 +129,6 @@ fun AppNavigation() {
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .focusRequester(contentFocusRequester)
         ) {
             when (currentScreen) {
                 Screen.Home     -> HomeScreen(viewModel = viewModel)
