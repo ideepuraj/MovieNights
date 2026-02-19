@@ -38,10 +38,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.movienight.R
 import com.movienight.viewmodel.HomeViewModel
 
 enum class Screen { Home, Search, Settings }
@@ -75,20 +78,11 @@ fun AppNavigation() {
             verticalArrangement = Arrangement.Top
         ) {
             // Logo
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFE50914)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "M",
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            }
+            AsyncImage(
+                model = R.mipmap.ic_launcher,
+                contentDescription = "Movie Nights",
+                modifier = Modifier.size(48.dp)
+            )
 
             Spacer(modifier = Modifier.height(48.dp))
 

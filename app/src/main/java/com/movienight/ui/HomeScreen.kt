@@ -53,7 +53,7 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
             .background(Color(0xFF141414))
     ) {
         Text(
-            text = "All Movies",
+            text = "Movie Nights",
             color = Color.White,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
