@@ -1,7 +1,5 @@
 package com.movienight.ui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +16,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,21 +26,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.movienight.viewmodel.HomeUiState
+import com.movienight.data.Movie
 import com.movienight.viewmodel.HomeViewModel
 
 @Composable
-fun SearchScreen(viewModel: HomeViewModel) {
-    val uiState by viewModel.uiState.collectAsState()
+fun SearchScreen(viewModel: HomeViewModel, onMovieClick: (Movie) -> Unit) {
+    val categoryStates by viewModel.categoryStates.collectAsState()
     var query by remember { mutableStateOf("") }
-    val context = LocalContext.current
 
-    val allMovies = (uiState as? HomeUiState.Success)?.movies ?: emptyList()
+    val allMovies by remember(categoryStates) {
+        derivedStateOf {
+            categoryStates.values
+                .flatMap { it.movies }
+                .distinctBy { it.url }
+        }
+    }
+
     val results = if (query.isBlank()) allMovies
                   else allMovies.filter { it.title.contains(query, ignoreCase = true) }
 
@@ -55,10 +59,9 @@ fun SearchScreen(viewModel: HomeViewModel) {
             color = Color.White,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 32.dp, top = 28.dp, bottom = 20.dp)
+            modifier = Modifier.padding(start = 32.dp, top = 28.dp, bottom = 20.dp),
         )
 
-        // Search field
         BasicTextField(
             value = query,
             onValueChange = { query = it },
@@ -75,28 +78,24 @@ fun SearchScreen(viewModel: HomeViewModel) {
                         .padding(horizontal = 20.dp, vertical = 14.dp)
                 ) {
                     if (query.isEmpty()) {
-                        Text(
-                            text = "Search movies...",
-                            color = Color(0xFF666666),
-                            fontSize = 16.sp
-                        )
+                        Text("Search movies...", color = Color(0xFF666666), fontSize = 16.sp)
                     }
                     innerTextField()
                 }
-            }
+            },
         )
 
-        // Results count
         Text(
-            text = if (query.isBlank()) "${results.size} movies" else "${results.size} result${if (results.size != 1) "s" else ""} for \"$query\"",
+            text = if (query.isBlank()) "${results.size} movies loaded"
+                   else "${results.size} result${if (results.size != 1) "s" else ""} for \"$query\"",
             color = Color(0xFF888888),
             fontSize = 13.sp,
-            modifier = Modifier.padding(start = 32.dp, top = 16.dp, bottom = 8.dp)
+            modifier = Modifier.padding(start = 32.dp, top = 16.dp, bottom = 8.dp),
         )
 
         if (results.isEmpty() && query.isNotBlank()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "No movies found", color = Color(0xFF555555), fontSize = 18.sp)
+                Text("No movies found", color = Color(0xFF555555), fontSize = 18.sp)
             }
         } else {
             LazyVerticalGrid(
@@ -104,19 +103,10 @@ fun SearchScreen(viewModel: HomeViewModel) {
                 contentPadding = PaddingValues(start = 32.dp, end = 32.dp, bottom = 32.dp, top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) {
                 items(results) { movie ->
-                    MovieCard(
-                        movie = movie,
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(Uri.parse(movie.streamUrl), "video/*")
-                                putExtra("title", movie.title)
-                            }
-                            runCatching { context.startActivity(intent) }
-                        }
-                    )
+                    MovieCard(movie = movie, onClick = { onMovieClick(movie) })
                 }
             }
         }

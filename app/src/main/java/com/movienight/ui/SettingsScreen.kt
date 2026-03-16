@@ -31,8 +31,8 @@ import com.movienight.viewmodel.HomeViewModel
 
 @Composable
 fun SettingsScreen(viewModel: HomeViewModel) {
-    val serverUrl by viewModel.serverUrl.collectAsState()
-    var urlInput by remember(serverUrl) { mutableStateOf(serverUrl) }
+    val baseUrl by viewModel.baseUrl.collectAsState()
+    var urlInput by remember(baseUrl) { mutableStateOf(baseUrl) }
     var saved by remember { mutableStateOf(false) }
 
     Column(
@@ -45,18 +45,17 @@ fun SettingsScreen(viewModel: HomeViewModel) {
             text = "Settings",
             color = Color.White,
             fontSize = 26.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ── Backend URL ───────────────────────────────────────────────────────
         Text(
-            text = "Backend API URL",
+            text = "MovieRulz Domain",
             color = Color(0xFFAAAAAA),
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp),
         )
 
         BasicTextField(
@@ -78,55 +77,53 @@ fun SettingsScreen(viewModel: HomeViewModel) {
                 ) {
                     if (urlInput.isEmpty()) {
                         Text(
-                            text = "http://192.168.1.x:8000/",
+                            text = "https://www.5movierulz.florist",
                             color = Color(0xFF555555),
-                            fontSize = 16.sp
+                            fontSize = 16.sp,
                         )
                     }
                     innerTextField()
                 }
-            }
+            },
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Include the trailing slash and port number.",
+            text = "Change this if the MovieRulz domain has moved.",
             color = Color(0xFF555555),
-            fontSize = 12.sp
+            fontSize = 12.sp,
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── Save button ───────────────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .background(if (saved) Color(0xFF2A2A2A) else Color(0xFFE50914))
                 .clickable {
                     if (urlInput.isNotBlank()) {
-                        viewModel.updateServerUrl(urlInput)
+                        viewModel.updateBaseUrl(urlInput)
                         saved = true
                     }
                 }
                 .padding(horizontal = 28.dp, vertical = 12.dp),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = if (saved) "Saved — reconnecting…" else "Save & Reconnect",
+                text = if (saved) "Saved — reloading..." else "Save & Reload",
                 color = Color.White,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
             )
         }
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // ── Current value display ─────────────────────────────────────────────
         Text(
-            text = "Current: $serverUrl",
+            text = "Current: $baseUrl",
             color = Color(0xFF555555),
-            fontSize = 12.sp
+            fontSize = 12.sp,
         )
     }
 }

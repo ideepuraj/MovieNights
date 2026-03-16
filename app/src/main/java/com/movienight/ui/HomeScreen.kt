@@ -1,14 +1,15 @@
 package com.movienight.ui
 
-import android.content.Intent
-import android.net.Uri
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,120 +20,173 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.movienight.viewmodel.HomeUiState
+import androidx.tv.material3.Border
+import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
+import coil.compose.AsyncImage
+import com.movienight.data.Movie
+import com.movienight.data.MovieCategory
+import com.movienight.viewmodel.CategoryState
 import com.movienight.viewmodel.HomeViewModel
+import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
-    val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
+fun HomeScreen(viewModel: HomeViewModel, onMovieClick: (Movie) -> Unit) {
+    val categoryStates by viewModel.categoryStates.collectAsState()
 
-    // Trigger network call after the first frame is drawn — UI (skeleton) shows first
-    LaunchedEffect(Unit) { viewModel.loadMovies() }
+    val malayalamMovies by remember(categoryStates) {
+        derivedStateOf {
+            categoryStates[MovieCategory.MALAYALAM]
+                ?.movies?.filter { it.thumbnail.isNotEmpty() }
+                ?: emptyList()
+        }
+    }
+    var bannerIndex by remember { mutableIntStateOf(0) }
+    val bannerMovie = malayalamMovies.getOrNull(bannerIndex)
+
+    // Auto-cycle banner every 8 seconds
+    LaunchedEffect(malayalamMovies.size) {
+        while (true) {
+            delay(8_000)
+            if (malayalamMovies.size > 1) {
+                bannerIndex = (bannerIndex + 1) % malayalamMovies.size
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF141414))
+            .verticalScroll(rememberScrollState())
     ) {
-        // Header — always visible immediately on launch
-        Text(
-            text = "Movie Nights",
-            color = Color.White,
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 32.dp, top = 28.dp, bottom = 8.dp)
+        HeroBanner(
+            movie = bannerMovie,
+            onPlay = { bannerMovie?.let(onMovieClick) },
         )
 
-        // Thin red progress bar — only while fetching
-        if (uiState is HomeUiState.Loading) {
-            LinearProgressIndicator(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 32.dp, vertical = 0.dp)
-                    .height(2.dp),
-                color = Color(0xFFE50914),
-                trackColor = Color(0xFF2A2A2A)
+        MovieCategory.entries.forEach { category ->
+            val state = categoryStates[category] ?: CategoryState()
+            CategoryRow(
+                title = category.displayName,
+                state = state,
+                onLoadMore = { viewModel.loadMore(category) },
+                onMovieClick = onMovieClick,
+                onMovieFocus = { movie ->
+                    if (category == MovieCategory.MALAYALAM) {
+                        val idx = malayalamMovies.indexOf(movie)
+                        if (idx >= 0) bannerIndex = idx
+                    }
+                },
             )
-            Spacer(modifier = Modifier.height(22.dp))
-        } else {
-            Spacer(modifier = Modifier.height(24.dp))
         }
 
-        when (val state = uiState) {
-            is HomeUiState.Loading -> {
-                // Netflix-style shimmer skeleton while data loads
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 170.dp),
-                    contentPadding = PaddingValues(start = 32.dp, end = 32.dp, bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(12) { SkeletonMovieCard() }
-                }
-            }
+        Spacer(Modifier.height(40.dp))
+    }
+}
 
-            is HomeUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Could not connect to server",
-                            color = Color(0xFFAAAAAA),
-                            fontSize = 20.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        TextButton(onClick = { viewModel.loadMovies() }) {
-                            Text(text = "Retry", color = Color(0xFFE50914), fontSize = 18.sp)
-                        }
-                    }
-                }
+@Composable
+private fun HeroBanner(movie: Movie?, onPlay: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(320.dp)
+    ) {
+        Crossfade(targetState = movie?.thumbnail ?: "", label = "banner_bg") { url ->
+            if (url.isNotEmpty()) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(Modifier.fillMaxSize().background(Color(0xFF1A1A2E)))
             }
+        }
 
-            is HomeUiState.Success -> {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 170.dp),
-                    contentPadding = PaddingValues(start = 32.dp, end = 32.dp, bottom = 32.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.fillMaxSize()
+        // Bottom gradient
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.5f to Color(0x88141414),
+                        1f to Color(0xFF141414),
+                    )
+                )
+        )
+
+        // Left gradient
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        0f to Color(0xCC000000),
+                        0.6f to Color.Transparent,
+                    )
+                )
+        )
+
+        if (movie != null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 24.dp, bottom = 28.dp)
+            ) {
+                Text(
+                    text = movie.title,
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 420.dp),
+                )
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFFE50914))
+                        .clickable(onClick = onPlay)
+                        .padding(horizontal = 24.dp, vertical = 10.dp),
                 ) {
-                    items(state.movies) { movie ->
-                        MovieCard(
-                            movie = movie,
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(Uri.parse(movie.streamUrl), "video/*")
-                                    putExtra("title", movie.title)
-                                }
-                                runCatching { context.startActivity(intent) }
-                            }
-                        )
-                    }
+                    Text(
+                        text = "\u25BA  Play",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                    )
                 }
             }
         }
@@ -140,36 +194,127 @@ fun HomeScreen(viewModel: HomeViewModel = viewModel()) {
 }
 
 @Composable
-private fun SkeletonMovieCard() {
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val alpha by transition.animateFloat(
-        initialValue = 0.15f,
-        targetValue = 0.4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shimmer_alpha"
-    )
-    val shimmer = Color(0xFFFFFFFF).copy(alpha = alpha)
+private fun CategoryRow(
+    title: String,
+    state: CategoryState,
+    onLoadMore: () -> Unit,
+    onMovieClick: (Movie) -> Unit,
+    onMovieFocus: (Movie) -> Unit,
+) {
+    val listState = rememberLazyListState()
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 160.dp, height = 240.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(shimmer)
+    val isNearEnd by remember {
+        derivedStateOf {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
+                ?: return@derivedStateOf false
+            val total = listState.layoutInfo.totalItemsCount
+            total > 0 && lastVisible >= total - 3
+        }
+    }
+
+    LaunchedEffect(isNearEnd) {
+        if (isNearEnd) onLoadMore()
+    }
+
+    Column {
+        Text(
+            text = title,
+            color = Color(0xFFE5E5E5),
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 10.dp),
         )
-        Spacer(modifier = Modifier.height(10.dp))
-        Box(
-            modifier = Modifier
-                .width(100.dp)
-                .height(13.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(shimmer)
-        )
+
+        LazyRow(
+            state = listState,
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (state.movies.isEmpty() && state.isLoading) {
+                items(List(8) { it }) { SkeletonPosterCard() }
+            } else {
+                itemsIndexed(state.movies) { _, movie ->
+                    PosterCard(
+                        movie = movie,
+                        onClick = { onMovieClick(movie) },
+                        onFocus = { onMovieFocus(movie) },
+                    )
+                }
+                if (state.isLoading) {
+                    item { SkeletonPosterCard() }
+                }
+            }
+        }
     }
 }
+
+@Composable
+private fun PosterCard(movie: Movie, onClick: () -> Unit, onFocus: () -> Unit) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .size(width = 120.dp, height = 190.dp)
+            .onFocusChanged { if (it.isFocused) onFocus() },
+        border = CardDefaults.border(
+            focusedBorder = Border(BorderStroke(2.dp, Color(0xFFE50914))),
+        ),
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AsyncImage(
+                model = movie.thumbnail.ifEmpty { null },
+                contentDescription = movie.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            if (movie.thumbnail.isEmpty()) {
+                Text(
+                    text = "\uD83C\uDFAC",
+                    modifier = Modifier.align(Alignment.Center),
+                    fontSize = 28.sp,
+                )
+            }
+            // Title overlay at bottom
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color(0xDD000000))
+                        )
+                    )
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+            ) {
+                Text(
+                    text = movie.title,
+                    color = Color(0xFFCCCCCC),
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkeletonPosterCard() {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val alpha by transition.animateFloat(
+        initialValue = 0.12f,
+        targetValue = 0.32f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "shimmer_alpha",
+    )
+    Box(
+        Modifier
+            .size(width = 120.dp, height = 190.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.White.copy(alpha = alpha))
+    )
+}
+

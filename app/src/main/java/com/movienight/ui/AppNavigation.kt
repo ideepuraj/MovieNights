@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import kotlinx.coroutines.delay
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -48,26 +48,46 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.movienight.R
 import com.movienight.viewmodel.HomeViewModel
+import com.movienight.viewmodel.PlayerViewModel
+import kotlinx.coroutines.delay
 
 enum class Screen { Home, Search, Settings }
 
 @Composable
 fun AppNavigation() {
     val viewModel: HomeViewModel = viewModel()
+    val playerViewModel: PlayerViewModel = viewModel()
+    val baseUrl by viewModel.baseUrl.collectAsState()
+
     var currentScreen by remember { mutableStateOf(Screen.Home) }
+    var nowPlayingUrl by remember { mutableStateOf<String?>(null) }
     var isSidebarExpanded by remember { mutableStateOf(false) }
-    // Ignore focus events on the sidebar for the first 600ms so TV's
-    // automatic initial focus doesn't expand it on launch
     var sidebarInteractive by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         delay(600)
         sidebarInteractive = true
     }
 
+    // Player overlay — takes over the full screen
+    nowPlayingUrl?.let { url ->
+        PlayerScreen(
+            movieUrl = url,
+            baseUrl = baseUrl,
+            onClose = { nowPlayingUrl = null },
+            playerViewModel = playerViewModel,
+        )
+        return
+    }
+
+    val onMovieClick: (com.movienight.data.Movie) -> Unit = { movie ->
+        nowPlayingUrl = movie.url
+    }
+
     val sidebarWidth by animateDpAsState(
         targetValue = if (isSidebarExpanded) 210.dp else 68.dp,
         animationSpec = tween(durationMillis = 200),
-        label = "sidebar_width"
+        label = "sidebar_width",
     )
 
     Row(
@@ -84,13 +104,12 @@ fun AppNavigation() {
                 .padding(vertical = 32.dp)
                 .onFocusChanged { if (sidebarInteractive) isSidebarExpanded = it.hasFocus },
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
+            verticalArrangement = Arrangement.Top,
         ) {
-            // Logo
             AsyncImage(
                 model = R.mipmap.ic_launcher,
                 contentDescription = "Movie Nights",
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(48.dp),
             )
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -100,7 +119,7 @@ fun AppNavigation() {
                 label = "Home",
                 selected = currentScreen == Screen.Home,
                 expanded = isSidebarExpanded,
-                onClick = { currentScreen = Screen.Home }
+                onClick = { currentScreen = Screen.Home },
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -110,7 +129,7 @@ fun AppNavigation() {
                 label = "Search",
                 selected = currentScreen == Screen.Search,
                 expanded = isSidebarExpanded,
-                onClick = { currentScreen = Screen.Search }
+                onClick = { currentScreen = Screen.Search },
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -120,7 +139,7 @@ fun AppNavigation() {
                 label = "Settings",
                 selected = currentScreen == Screen.Settings,
                 expanded = isSidebarExpanded,
-                onClick = { currentScreen = Screen.Settings }
+                onClick = { currentScreen = Screen.Settings },
             )
         }
 
@@ -131,8 +150,8 @@ fun AppNavigation() {
                 .fillMaxHeight()
         ) {
             when (currentScreen) {
-                Screen.Home     -> HomeScreen(viewModel = viewModel)
-                Screen.Search   -> SearchScreen(viewModel = viewModel)
+                Screen.Home     -> HomeScreen(viewModel = viewModel, onMovieClick = onMovieClick)
+                Screen.Search   -> SearchScreen(viewModel = viewModel, onMovieClick = onMovieClick)
                 Screen.Settings -> SettingsScreen(viewModel = viewModel)
             }
         }
@@ -145,7 +164,7 @@ private fun NavItem(
     label: String,
     selected: Boolean,
     expanded: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
@@ -167,18 +186,18 @@ private fun NavItem(
             .onFocusChanged { isFocused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = if (selected) Color(0xFFE50914) else contentColor,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp),
         )
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn(tween(150)) + expandHorizontally(tween(200)),
-            exit  = fadeOut(tween(100)) + shrinkHorizontally(tween(150))
+            exit  = fadeOut(tween(100)) + shrinkHorizontally(tween(150)),
         ) {
             Text(
                 text = label,
@@ -186,7 +205,7 @@ private fun NavItem(
                 fontSize = 15.sp,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 maxLines = 1,
-                modifier = Modifier.padding(start = 14.dp)
+                modifier = Modifier.padding(start = 14.dp),
             )
         }
     }

@@ -26,26 +26,24 @@ import com.movienight.data.Movie
 fun MovieCard(
     movie: Movie,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Card(
             onClick = onClick,
             modifier = Modifier.size(width = 160.dp, height = 240.dp),
             border = CardDefaults.border(
-                focusedBorder = Border(
-                    border = BorderStroke(3.dp, Color.White)
-                )
-            )
+                focusedBorder = Border(border = BorderStroke(3.dp, Color.White))
+            ),
         ) {
             AsyncImage(
-                model = movie.thumbnailUrl,
+                model = movie.thumbnail,
                 contentDescription = movie.title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(width = 160.dp, height = 240.dp)
+                modifier = Modifier.size(width = 160.dp, height = 240.dp),
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -58,7 +56,7 @@ fun MovieCard(
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp)
+                .padding(horizontal = 4.dp),
         )
     }
 }

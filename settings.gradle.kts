@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MovieNights"
 include(":app")
- 
+include(":movierulz-android-lib")
+project(":movierulz-android-lib").projectDir = file("movierulz-android-lib")

@@ -40,6 +40,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
 
+    kotlinOptions {
+        freeCompilerArgs += "-opt-in=androidx.media3.common.util.UnstableApi"
+    }
+
     kotlin {
         jvmToolchain(11)
     }
@@ -61,15 +65,26 @@ dependencies {
     implementation(libs.androidx.tv.foundation)
     implementation(libs.androidx.tv.material)
 
-    // Networking
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
-
     // Image loading
     implementation(libs.coil.compose)
 
     // ViewModel
     implementation(libs.lifecycle.viewmodel.compose)
+
+    // Media3 / ExoPlayer
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.ui)
+
+    // Scraping
+    implementation(libs.jsoup)
+    implementation(libs.okhttp)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
+
+    // movierulz extraction library
+    implementation(project(":movierulz-android-lib"))
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
