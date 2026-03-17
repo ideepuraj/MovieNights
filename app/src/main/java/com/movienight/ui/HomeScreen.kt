@@ -35,11 +35,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,6 +75,16 @@ fun HomeScreen(viewModel: HomeViewModel, onMovieClick: (Movie) -> Unit) {
     var bannerIndex by remember { mutableIntStateOf(0) }
     val bannerMovie = malayalamMovies.getOrNull(bannerIndex)
 
+    val firstCardFocusRequester = remember { FocusRequester() }
+    var firstFocusRequested by remember { mutableStateOf(false) }
+    LaunchedEffect(malayalamMovies.size) {
+        if (!firstFocusRequested && malayalamMovies.isNotEmpty()) {
+            firstFocusRequested = true
+            delay(100)
+            try { firstCardFocusRequester.requestFocus() } catch (_: Exception) {}
+        }
+    }
+
     // Auto-cycle banner every 8 seconds
     LaunchedEffect(malayalamMovies.size) {
         while (true) {
@@ -93,13 +106,14 @@ fun HomeScreen(viewModel: HomeViewModel, onMovieClick: (Movie) -> Unit) {
             onPlay = { bannerMovie?.let(onMovieClick) },
         )
 
-        MovieCategory.entries.forEach { category ->
+        MovieCategory.entries.forEachIndexed { index, category ->
             val state = categoryStates[category] ?: CategoryState()
             CategoryRow(
                 title = category.displayName,
                 state = state,
                 onLoadMore = { viewModel.loadMore(category) },
                 onMovieClick = onMovieClick,
+                firstItemFocusRequester = if (index == 0) firstCardFocusRequester else null,
                 onMovieFocus = { movie ->
                     if (category == MovieCategory.MALAYALAM) {
                         val idx = malayalamMovies.indexOf(movie)
@@ -200,6 +214,7 @@ private fun CategoryRow(
     onLoadMore: () -> Unit,
     onMovieClick: (Movie) -> Unit,
     onMovieFocus: (Movie) -> Unit,
+    firstItemFocusRequester: FocusRequester? = null,
 ) {
     val listState = rememberLazyListState()
 
@@ -234,11 +249,12 @@ private fun CategoryRow(
             if (state.movies.isEmpty() && state.isLoading) {
                 items(List(8) { it }) { SkeletonPosterCard() }
             } else {
-                itemsIndexed(state.movies) { _, movie ->
+                itemsIndexed(state.movies) { index, movie ->
                     PosterCard(
                         movie = movie,
                         onClick = { onMovieClick(movie) },
                         onFocus = { onMovieFocus(movie) },
+                        focusRequester = if (index == 0) firstItemFocusRequester else null,
                     )
                 }
                 if (state.isLoading) {
@@ -250,11 +266,19 @@ private fun CategoryRow(
 }
 
 @Composable
-private fun PosterCard(movie: Movie, onClick: () -> Unit, onFocus: () -> Unit) {
+private fun PosterCard(
+    movie: Movie,
+    onClick: () -> Unit,
+    onFocus: () -> Unit,
+    focusRequester: FocusRequester? = null,
+) {
+    val focusModifier = if (focusRequester != null)
+        Modifier.focusRequester(focusRequester) else Modifier
     Card(
         onClick = onClick,
         modifier = Modifier
             .size(width = 120.dp, height = 190.dp)
+            .then(focusModifier)
             .onFocusChanged { if (it.isFocused) onFocus() },
         border = CardDefaults.border(
             focusedBorder = Border(BorderStroke(2.dp, Color(0xFFE50914))),

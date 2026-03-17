@@ -1,5 +1,6 @@
 package com.movienight.ui
 
+import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -21,7 +22,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
@@ -46,6 +50,7 @@ fun PlayerScreen(
 ) {
     val uiState by playerViewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var controllerVisible by remember { mutableStateOf(true) }
 
     LaunchedEffect(movieUrl) {
         playerViewModel.extractAndPlay(movieUrl, baseUrl)
@@ -84,7 +89,12 @@ fun PlayerScreen(
                         )
                         .build()
                         .apply {
-                            setMediaItem(MediaItem.fromUri(state.streamInfo.rawUrl))
+                            setMediaItem(
+                                MediaItem.Builder()
+                                    .setUri(state.streamInfo.rawUrl)
+                                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                                    .build()
+                            )
                             prepare()
                             playWhenReady = true
                         }
@@ -101,6 +111,11 @@ fun PlayerScreen(
                             layoutParams = ViewGroup.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                            setControllerVisibilityListener(
+                                PlayerView.ControllerVisibilityListener { visibility ->
+                                    controllerVisible = visibility == View.VISIBLE
+                                }
                             )
                         }
                     },
@@ -124,21 +139,23 @@ fun PlayerScreen(
             }
         }
 
-        IconButton(
-            onClick = {
-                playerViewModel.reset()
-                onClose()
-            },
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(8.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Close,
-                contentDescription = "Close",
-                tint = Color.White,
-                modifier = Modifier.size(28.dp),
-            )
+        if (uiState !is PlayerUiState.Ready || controllerVisible) {
+            IconButton(
+                onClick = {
+                    playerViewModel.reset()
+                    onClose()
+                },
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
         }
     }
 }

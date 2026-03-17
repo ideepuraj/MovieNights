@@ -102,7 +102,7 @@ fun AppNavigation() {
                 .fillMaxHeight()
                 .background(Color(0xFF1A1A1A))
                 .padding(vertical = 32.dp)
-                .onFocusChanged { if (sidebarInteractive) isSidebarExpanded = it.hasFocus },
+                .onFocusChanged { if (sidebarInteractive && !it.hasFocus) isSidebarExpanded = false },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
         ) {
@@ -119,7 +119,7 @@ fun AppNavigation() {
                 label = "Home",
                 selected = currentScreen == Screen.Home,
                 expanded = isSidebarExpanded,
-                onClick = { currentScreen = Screen.Home },
+                onClick = { isSidebarExpanded = true; currentScreen = Screen.Home },
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -129,7 +129,7 @@ fun AppNavigation() {
                 label = "Search",
                 selected = currentScreen == Screen.Search,
                 expanded = isSidebarExpanded,
-                onClick = { currentScreen = Screen.Search },
+                onClick = { isSidebarExpanded = true; currentScreen = Screen.Search },
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -139,7 +139,7 @@ fun AppNavigation() {
                 label = "Settings",
                 selected = currentScreen == Screen.Settings,
                 expanded = isSidebarExpanded,
-                onClick = { currentScreen = Screen.Settings },
+                onClick = { isSidebarExpanded = true; currentScreen = Screen.Settings },
             )
         }
 
