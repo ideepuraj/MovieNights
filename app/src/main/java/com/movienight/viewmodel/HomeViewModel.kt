@@ -7,10 +7,14 @@ import androidx.lifecycle.viewModelScope
 import com.movienight.data.Movie
 import com.movienight.data.MovieCategory
 import com.movienight.data.MovieRulzScraper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 data class CategoryState(
     val movies: List<Movie> = emptyList(),
@@ -31,6 +35,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val baseUrl: StateFlow<String> = _baseUrl.asStateFlow()
 
     private var scraper = MovieRulzScraper(application, _baseUrl.value)
+    private val httpClient = OkHttpClient()
 
     private val _categoryStates = MutableStateFlow(
         MovieCategory.entries.associateWith { CategoryState() }
@@ -39,7 +44,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _categoryStates.asStateFlow()
 
     init {
+        fetchRemoteBaseUrl()
         MovieCategory.entries.forEach { loadMore(it) }
+    }
+
+    /** Silently fetches the remote config and auto-updates baseUrl if it has changed. */
+    private fun fetchRemoteBaseUrl() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val request = Request.Builder()
+                    .url("http://getmyapps.in/movienight/baseurl")
+                    .build()
+                val remoteUrl = httpClient.newCall(request).execute()
+                    .use { it.body?.string()?.trim() }
+                    ?: return@launch
+                if (remoteUrl.isNotBlank() && remoteUrl != _baseUrl.value) {
+                    withContext(Dispatchers.Main) { updateBaseUrl(remoteUrl) }
+                }
+            } catch (_: Exception) {
+                // Server unreachable — continue with stored baseUrl
+            }
+        }
     }
 
     fun loadMore(category: MovieCategory) {

@@ -90,7 +90,7 @@ fun SettingsScreen(viewModel: HomeViewModel) {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Change this if the MovieRulz domain has moved.",
+            text = "Domain is auto-updated from remote config on each launch. Override manually only if auto-update fails.",
             color = Color(0xFF555555),
             fontSize = 12.sp,
         )
