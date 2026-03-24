@@ -29,6 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -49,6 +51,16 @@ fun PlayerScreen(
     val uiState by playerViewModel.uiState.collectAsState()
     val context = LocalContext.current
     var backPressedOnce by remember { mutableStateOf(false) }
+
+    val activity = context as android.app.Activity
+    DisposableEffect(Unit) {
+        val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        onDispose {
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+    }
 
     BackHandler {
         if (backPressedOnce) {

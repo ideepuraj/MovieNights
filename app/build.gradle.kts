@@ -93,7 +93,4 @@ dependencies {
     // movierulz extraction library
     implementation(project(":movierulz-android-lib"))
 
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
 }

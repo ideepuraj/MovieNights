@@ -24,6 +24,13 @@ data class CategoryState(
     val error: String? = null,
 )
 
+sealed class UrlTestState {
+    object Idle : UrlTestState()
+    object Testing : UrlTestState()
+    data class Success(val movieCount: Int) : UrlTestState()
+    data class Failure(val reason: String) : UrlTestState()
+}
+
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val prefs = application.getSharedPreferences("movienight", Context.MODE_PRIVATE)
@@ -42,6 +49,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     )
     val categoryStates: StateFlow<Map<MovieCategory, CategoryState>> =
         _categoryStates.asStateFlow()
+
+    private val _urlTestState = MutableStateFlow<UrlTestState>(UrlTestState.Idle)
+    val urlTestState: StateFlow<UrlTestState> = _urlTestState.asStateFlow()
 
     init {
         fetchRemoteBaseUrl()
@@ -73,17 +83,49 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val nextPage = state.page + 1
             updateState(category) { it.copy(isLoading = true, error = null) }
-            val movies = scraper.getMovies(category, nextPage)
-            if (movies.isEmpty()) {
-                updateState(category) { it.copy(isLoading = false, isDone = true) }
-            } else {
+            try {
+                val movies = scraper.getMovies(category, nextPage)
+                if (movies.isEmpty()) {
+                    updateState(category) { it.copy(isLoading = false, isDone = true) }
+                } else {
+                    updateState(category) { it.copy(
+                        movies = it.movies + movies,
+                        page = nextPage,
+                        isLoading = false,
+                    )}
+                }
+            } catch (e: Exception) {
                 updateState(category) { it.copy(
-                    movies = it.movies + movies,
-                    page = nextPage,
                     isLoading = false,
+                    error = e.message ?: "Failed to load",
                 )}
             }
         }
+    }
+
+    fun retryCategory(category: MovieCategory) {
+        updateState(category) { it.copy(error = null) }
+        loadMore(category)
+    }
+
+    /** Tests [url] without saving it. Updates [urlTestState] with the result. */
+    fun testUrl(url: String) {
+        _urlTestState.value = UrlTestState.Idle
+        if (url.isBlank()) return
+        viewModelScope.launch {
+            _urlTestState.value = UrlTestState.Testing
+            try {
+                val tempScraper = MovieRulzScraper(getApplication(), url.trim())
+                val count = tempScraper.testUrl(url.trim())
+                _urlTestState.value = UrlTestState.Success(count)
+            } catch (e: Exception) {
+                _urlTestState.value = UrlTestState.Failure(e.message ?: "Unknown error")
+            }
+        }
+    }
+
+    fun resetUrlTest() {
+        _urlTestState.value = UrlTestState.Idle
     }
 
     fun updateBaseUrl(url: String) {
@@ -92,6 +134,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _baseUrl.value = trimmed
         scraper = MovieRulzScraper(getApplication(), trimmed)
         _categoryStates.value = MovieCategory.entries.associateWith { CategoryState() }
+        _urlTestState.value = UrlTestState.Idle
         MovieCategory.entries.forEach { loadMore(it) }
     }
 

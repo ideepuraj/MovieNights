@@ -9,6 +9,7 @@ import org.jsoup.Jsoup
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 enum class MovieCategory(val slug: String, val path: String, val displayName: String) {
@@ -34,10 +35,32 @@ class MovieRulzScraper(private val context: Context, private val baseUrl: String
 
     private val cacheDir = File(context.cacheDir, "movierulz").also { it.mkdirs() }
 
+    /** Returns movies for the given category/page. Throws on network or HTTP errors. */
     suspend fun getMovies(category: MovieCategory, page: Int): List<Movie> =
         withContext(Dispatchers.IO) {
             getCachedMovies(category, page)
         }
+
+    /**
+     * Tests whether [url] is a working MovieRulz domain by fetching the first
+     * page of Malayalam movies. Returns the number of movies found, or throws
+     * an exception with a human-readable message on failure.
+     */
+    suspend fun testUrl(url: String): Int = withContext(Dispatchers.IO) {
+        val testUrl = "${url.trimEnd('/')}${MovieCategory.MALAYALAM.path}"
+        val request = Request.Builder()
+            .url(testUrl)
+            .header("User-Agent", USER_AGENT)
+            .build()
+        val html = client.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) throw IOException("Server returned HTTP ${resp.code}")
+            resp.body?.string() ?: throw IOException("Empty response from server")
+        }
+        val doc = Jsoup.parse(html)
+        val count = doc.select("div.content.home_style ul li").size
+        if (count == 0) throw IOException("URL reachable but no movies found — selector mismatch or wrong domain")
+        count
+    }
 
     private fun getCachedMovies(category: MovieCategory, page: Int): List<Movie> {
         val cacheFile = File(cacheDir, "movies_${category.slug}_p$page.json")
@@ -52,30 +75,28 @@ class MovieRulzScraper(private val context: Context, private val baseUrl: String
         }
     }
 
+    /** Throws IOException on network/HTTP failure. Returns empty list if the page has no items. */
     private fun scrapeFromWeb(category: MovieCategory, page: Int): List<Movie> {
         val url = if (page == 1) "$baseUrl${category.path}"
                   else "$baseUrl${category.path}/page/$page"
-        return try {
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", USER_AGENT)
-                .build()
-            val html = client.newCall(request).execute().use { resp ->
-                resp.body?.string() ?: return emptyList()
-            }
-            val doc = Jsoup.parse(html)
-            doc.select("div.content.home_style ul li").mapNotNull { item ->
-                val link = item.selectFirst("a") ?: return@mapNotNull null
-                val img = item.selectFirst("img")
-                Movie(
-                    title = (link.attr("title").ifBlank { "Untitled" })
-                        .split("(").first().trim(),
-                    url = link.attr("href"),
-                    thumbnail = img?.attr("src") ?: "",
-                )
-            }
-        } catch (e: Exception) {
-            emptyList()
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", USER_AGENT)
+            .build()
+        val html = client.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) throw IOException("HTTP ${resp.code} for $url")
+            resp.body?.string() ?: return emptyList()
+        }
+        val doc = Jsoup.parse(html)
+        return doc.select("div.content.home_style ul li").mapNotNull { item ->
+            val link = item.selectFirst("a") ?: return@mapNotNull null
+            val img = item.selectFirst("img")
+            Movie(
+                title = (link.attr("title").ifBlank { "Untitled" })
+                    .split("(").first().trim(),
+                url = link.attr("href"),
+                thumbnail = img?.attr("src") ?: "",
+            )
         }
     }
 

@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,7 +53,10 @@ import com.movienight.data.Movie
 import com.movienight.data.MovieCategory
 import com.movienight.viewmodel.CategoryState
 import com.movienight.viewmodel.HomeViewModel
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 
 @Composable
 fun HomeScreen(viewModel: HomeViewModel, onMovieClick: (Movie) -> Unit) {
@@ -139,6 +143,7 @@ fun HomeScreen(viewModel: HomeViewModel, onMovieClick: (Movie) -> Unit) {
                     title = category.displayName,
                     state = state,
                     onLoadMore = { viewModel.loadMore(category) },
+                    onRetry = { viewModel.retryCategory(category) },
                     onMovieClick = onMovieClick,
                 )
             }
@@ -153,17 +158,20 @@ private fun MobileCategoryRow(
     title: String,
     state: CategoryState,
     onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
     onMovieClick: (Movie) -> Unit,
 ) {
     val listState = rememberLazyListState()
-    val isNearEnd by remember {
-        derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: return@snapshotFlow false
             val total = listState.layoutInfo.totalItemsCount
-            total > 0 && last >= total - 3
+            total > 0 && last >= total - 5
         }
+            .distinctUntilChanged()
+            .filter { nearEnd: Boolean -> nearEnd }
+            .collect { onLoadMore() }
     }
-    LaunchedEffect(isNearEnd) { if (isNearEnd) onLoadMore() }
 
     Column {
         Text(
@@ -173,18 +181,52 @@ private fun MobileCategoryRow(
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(start = 12.dp, top = 16.dp, bottom = 8.dp),
         )
-        LazyRow(
-            state = listState,
-            contentPadding = PaddingValues(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (state.movies.isEmpty() && state.isLoading) {
-                items(List(6) { it }) { MobileSkeletonCard() }
-            } else {
-                itemsIndexed(state.movies) { _, movie ->
-                    MobilePosterCard(movie = movie, onClick = { onMovieClick(movie) })
+        if (state.movies.isEmpty() && state.error != null) {
+            // Full error state — no movies loaded at all
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Text(
+                    text = "Could not load movies. Check your domain in Settings.",
+                    color = Color(0xFF888888),
+                    fontSize = 12.sp,
+                )
+                TextButton(onClick = onRetry) {
+                    Text("Retry", color = Color(0xFFE50914), fontSize = 12.sp)
                 }
-                if (state.isLoading) item { MobileSkeletonCard() }
+            }
+        } else {
+            LazyRow(
+                state = listState,
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (state.movies.isEmpty() && state.isLoading) {
+                    items(List(6) { it }) { MobileSkeletonCard() }
+                } else {
+                    itemsIndexed(state.movies) { _, movie ->
+                        MobilePosterCard(movie = movie, onClick = { onMovieClick(movie) })
+                    }
+                    if (state.isLoading) item { MobileSkeletonCard() }
+                    if (state.error != null) item {
+                        // Inline error at end of row (pagination failed)
+                        Column(
+                            modifier = Modifier
+                                .size(width = 100.dp, height = 155.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF2A2A2A))
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Spacer(Modifier.height(32.dp))
+                            Text("!", color = Color(0xFFE50914), fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Load failed", color = Color(0xFF888888), fontSize = 9.sp)
+                            TextButton(onClick = onRetry) {
+                                Text("Retry", color = Color(0xFFE50914), fontSize = 10.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
