@@ -32,6 +32,19 @@ android {
         compose = true
     }
 
+    flavorDimensions += "platform"
+
+    productFlavors {
+        create("tv") {
+            dimension = "platform"
+            applicationId = "com.movienight.tv"
+        }
+        create("mobile") {
+            dimension = "platform"
+            applicationId = "com.movienight"
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -55,9 +68,9 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
-    // TV
-    implementation(libs.androidx.tv.foundation)
-    implementation(libs.androidx.tv.material)
+    // TV (TV flavor only)
+    "tvImplementation"(libs.androidx.tv.foundation)
+    "tvImplementation"(libs.androidx.tv.material)
 
     // Image loading
     implementation(libs.coil.compose)
